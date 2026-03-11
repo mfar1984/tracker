@@ -3,6 +3,12 @@
 .idea/
 .vscode/
 
+# Backend folder (old structure)
+backend/
+
+# Flutter app (separate repository)
+tracker_app/
+
 # Environment files
 .env
 .env.backup
@@ -44,9 +50,3 @@ public/storage/
 
 # Composer
 auth.json
-
-# Flutter tracker_app (keep this folder)
-# tracker_app/ is tracked
-
-# Backend folder (old structure - ignore if exists)
-backend/
