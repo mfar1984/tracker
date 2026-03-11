@@ -5,41 +5,27 @@
 
 # Environment files
 .env
-*.env
-backend/.env
-backend/.env.example
-backend/.env.production
-
-# Test files (moved to backend/tests/)
-backend/test*.php
-backend/check*.php
-backend/seed*.php
-backend/update*.php
-
-# Flutter tracker_app (should be separate repository)
-backend/tracker_app/
-tracker_app/
-
-# Flutter build and cache files
-*.dart_tool/
-*build/
-*.flutter-plugins
-*.flutter-plugins-dependencies
+.env.backup
+.env.production
 
 # Dependencies
 node_modules/
 vendor/
-backend/vendor/
 
 # Laravel specific
-backend/storage/logs/
-backend/storage/framework/cache/
-backend/storage/framework/sessions/
-backend/storage/framework/views/
-backend/bootstrap/cache/
+storage/logs/*.log
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+!storage/framework/.gitignore
+!storage/framework/cache/.gitignore
+!storage/framework/sessions/.gitignore
+!storage/framework/views/.gitignore
 
 # Database
-backend/database/database.sqlite
+database/database.sqlite
+*.sqlite
 
 # OS files
 .DS_Store
@@ -49,7 +35,18 @@ Thumbs.db
 *.log
 
 # PHPUnit
-backend/.phpunit.result.cache
+.phpunit.result.cache
+
+# Build files
+public/build/
+public/hot/
+public/storage/
 
 # Composer
-backend/composer.lock
+auth.json
+
+# Flutter tracker_app (keep this folder)
+# tracker_app/ is tracked
+
+# Backend folder (old structure - ignore if exists)
+backend/
