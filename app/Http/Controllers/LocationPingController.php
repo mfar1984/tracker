@@ -20,6 +20,7 @@ class LocationPingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'licenseKey' => 'required|string',
             'deviceId' => 'required|string',
             'name' => 'required|string|min:1',
             'latitude' => 'required|numeric|min:-90|max:90',
@@ -46,6 +47,38 @@ class LocationPingController extends Controller
                 'code' => 'DEVICE_NOT_FOUND',
                 'timestamp' => now()->timestamp * 1000,
             ], 404);
+        }
+
+        // Validate license key matches the device's user
+        if ($device->user->license_key !== $request->licenseKey) {
+            DB::rollBack();
+            return response()->json([
+                'error' => true,
+                'message' => 'Invalid license key',
+                'code' => 'INVALID_LICENSE_KEY',
+                'timestamp' => now()->timestamp * 1000,
+            ], 403);
+        }
+
+        // Check if user is approved and not suspended
+        if (!$device->user->approved) {
+            DB::rollBack();
+            return response()->json([
+                'error' => true,
+                'message' => 'User account not approved',
+                'code' => 'USER_NOT_APPROVED',
+                'timestamp' => now()->timestamp * 1000,
+            ], 403);
+        }
+
+        if ($device->user->suspended) {
+            DB::rollBack();
+            return response()->json([
+                'error' => true,
+                'message' => 'User account suspended',
+                'code' => 'USER_SUSPENDED',
+                'timestamp' => now()->timestamp * 1000,
+            ], 403);
         }
 
         // Create the location ping

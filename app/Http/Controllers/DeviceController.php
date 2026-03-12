@@ -264,6 +264,7 @@ class DeviceController extends Controller
             ],
             'user' => [
                 'name' => $user->name,
+                'license_key' => $user->license_key,
                 'devices_count' => $deviceCount + 1,
                 'devices_limit' => 10,
             ],
