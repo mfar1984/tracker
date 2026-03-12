@@ -17,6 +17,7 @@ Route::post('/devices/register-with-license', [DeviceController::class, 'registe
 Route::get('/devices/avatar-icons', [DeviceController::class, 'getAvatarIcons']);
 Route::post('/pings', [LocationPingController::class, 'store']);
 Route::get('/devices/{deviceId}/check-updates', [DeviceController::class, 'checkUpdates']);
+Route::get('/public/settings', [App\Http\Controllers\AdminController::class, 'getPublicSettings']);
 
 // OTP endpoints (no auth required for registration flow)
 Route::prefix('otp')->group(function () {

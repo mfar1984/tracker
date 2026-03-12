@@ -18,6 +18,33 @@ class AdminController extends Controller
     }
 
     /**
+     * Get public settings (no auth required)
+     * GET /api/public/settings
+     */
+    public function getPublicSettings(): JsonResponse
+    {
+        try {
+            // Only return public settings that are safe to expose
+            $publicSettings = [
+                'app_name' => $this->settingsService->get('app_name'),
+                'map_center_lat' => $this->settingsService->get('map_center_lat'),
+                'map_center_lng' => $this->settingsService->get('map_center_lng'),
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $publicSettings
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Failed to retrieve public settings',
+                'code' => 'PUBLIC_SETTINGS_RETRIEVAL_ERROR'
+            ], 500);
+        }
+    }
+
+    /**
      * Get all settings (admin only)
      * GET /api/admin/settings
      */
@@ -141,17 +168,6 @@ class AdminController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Test email failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'smtp_settings' => [
-                    'host' => $this->settingsService->get('smtp_host'),
-                    'port' => $this->settingsService->get('smtp_port'),
-                    'username' => $this->settingsService->get('smtp_username'),
-                    'encryption' => $this->settingsService->get('smtp_encryption'),
-                ]
-            ]);
-            
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to send test email: ' . $e->getMessage(),
@@ -195,11 +211,6 @@ class AdminController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Test SMS failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to send test SMS: ' . $e->getMessage(),

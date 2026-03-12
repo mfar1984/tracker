@@ -500,10 +500,10 @@
         // Initialize map with default coordinates (will be updated from settings)
         let mapCenter = [21.4225, 39.8262]; // Default Mecca coordinates
         
-        // Load map configuration from admin settings
+        // Load map configuration from public settings
         async function loadMapConfiguration() {
             try {
-                const response = await fetch('/api/admin/settings');
+                const response = await fetch('/api/public/settings');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -517,8 +517,129 @@
                     }
                 }
             } catch (error) {
-                console.log('Using default map center (Mecca)');
+                // Using default map center (Mecca)
             }
+        }
+        
+        // Add custom location button to map
+        function addLocationButton(map) {
+            // Create custom control
+            const LocationControl = L.Control.extend({
+                onAdd: function(map) {
+                    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+                    
+                    container.style.backgroundColor = 'white';
+                    container.style.backgroundImage = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDhDMTMuMSA4IDE0IDguOSAxNCA5QzE0IDEwLjEgMTMuMSAxMSAxMiAxMUMxMC45IDExIDEwIDEwLjEgMTAgOUMxMCA4LjkgMTAuOSA4IDEyIDhaTTEyIDJDMTUuMzEgMiAxOCA0LjY5IDE4IDhDMTggMTIuNSAxMiAyMiAxMiAyMkM2IDEyLjUgNiA4IDYgOEM2IDQuNjkgOC42OSAyIDEyIDJaIiBmaWxsPSIjMzMzIi8+Cjwvc3ZnPgo=)';
+                    container.style.backgroundSize = '18px 18px';
+                    container.style.backgroundRepeat = 'no-repeat';
+                    container.style.backgroundPosition = 'center';
+                    container.style.width = '34px';
+                    container.style.height = '34px';
+                    container.style.cursor = 'pointer';
+                    container.style.border = '2px solid rgba(0,0,0,0.2)';
+                    container.style.borderRadius = '2px';
+                    container.style.marginTop = '2px';
+                    container.style.lineHeight = '30px';
+                    container.style.textAlign = 'center';
+                    container.style.fontSize = '18px';
+                    container.style.fontWeight = 'bold';
+                    container.style.boxShadow = 'none';
+                    container.title = 'Show All Devices';
+                    
+                    container.onclick = function() {
+                        fitAllDevices();
+                    };
+                    
+                    return container;
+                },
+                
+                onRemove: function(map) {
+                    // Nothing to do here
+                }
+            });
+            
+            // Add the control to the map (positioned below zoom controls)
+            map.addControl(new LocationControl({ position: 'topleft' }));
+        }
+        
+        // Function to fit all devices in view
+        function fitAllDevices() {
+            const allMarkers = Object.values(markers);
+            
+            if (allMarkers.length === 0) {
+                // No devices found, show notification
+                showNotification('No active devices found', 'warning');
+                return;
+            }
+            
+            if (allMarkers.length === 1) {
+                // Only one device, center on it
+                const marker = allMarkers[0];
+                window.map.setView(marker.getLatLng(), 15);
+                marker.openPopup();
+                return;
+            }
+            
+            // Multiple devices, fit bounds to show all
+            const group = new L.featureGroup(allMarkers);
+            window.map.fitBounds(group.getBounds().pad(0.1)); // Add 10% padding
+            
+            showNotification(`Showing all ${allMarkers.length} devices`, 'success');
+        }
+        
+        // Function to show notifications
+        function showNotification(message, type = 'info') {
+            // Remove existing notification if any
+            const existingNotification = document.getElementById('map-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.id = 'map-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 6px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                transition: all 0.3s ease;
+                max-width: 300px;
+            `;
+            
+            // Set background color based on type
+            switch(type) {
+                case 'success':
+                    notification.style.backgroundColor = '#10b981';
+                    break;
+                case 'warning':
+                    notification.style.backgroundColor = '#f59e0b';
+                    break;
+                case 'error':
+                    notification.style.backgroundColor = '#ef4444';
+                    break;
+                default:
+                    notification.style.backgroundColor = '#3b82f6';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 300);
+                }
+            }, 3000);
         }
         
         // Load configuration first, then initialize map
@@ -532,6 +653,15 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 maxZoom: 19
             }).addTo(map);
+            
+            // Add custom location button
+            addLocationButton(map);
+            
+            // Now that map is initialized with correct center, start fetching locations
+            fetchLocations();
+            
+            // Poll for updates every 30 seconds as per requirements
+            setInterval(fetchLocations, 30000);
         });
 
         // Store markers by deviceId
@@ -649,21 +779,17 @@
         
         // Fetch and display device locations
         async function fetchLocations() {
-            console.log('Fetching locations from API...');
             try {
                 // Fetch locations for authenticated user (no email parameter needed)
                 const url = `/api/locations`;
                 
                 const response = await fetch(url);
                 const data = await response.json();
-                console.log('API Response:', data);
-                console.log('Number of locations:', data.locations ? data.locations.length : 0);
                 
                 if (data.locations && data.locations.length > 0) {
                     const bounds = [];
                     
                     data.locations.forEach((location) => {
-                        console.log('Processing device:', location.name, location);
                         const { deviceId, name, latitude, longitude, isStale, batteryLevel, signalStrength, avatar } = location;
                         const icon = createAvatarIcon(avatar, isStale);
                         
@@ -683,7 +809,6 @@
                             markers[deviceId].locationData = location;
                         } else {
                             // Create new marker
-                            console.log('Creating new marker for:', name, 'at', latitude, longitude);
                             const marker = L.marker([latitude, longitude], { icon })
                                 .addTo(map)
                                 .bindPopup(
@@ -712,11 +837,8 @@
                         isFirstLoad = false;
                     }
                 } else {
-                    console.log('No active devices found');
-                    
                     // Show message if user has devices but no recent data
                     if (data.message && data.deviceCount > 0) {
-                        console.log(`User has ${data.deviceCount} devices but no recent location data`);
                         
                         // Show notification on map
                         if (!document.getElementById('no-data-message')) {
@@ -756,12 +878,6 @@
                 console.error('Error fetching locations:', error);
             }
         }
-        
-        // Initial fetch
-        fetchLocations();
-        
-        // Poll for updates every 30 seconds as per requirements
-        setInterval(fetchLocations, 30000);
         
         // Drawer functionality
         const drawer = document.getElementById('info-drawer');
@@ -2197,7 +2313,7 @@
                 });
                 
                 if (response.ok) {
-                    console.log('Avatar updated successfully');
+                    // Avatar updated successfully
                 } else {
                     console.error('Error updating avatar');
                 }

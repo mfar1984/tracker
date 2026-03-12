@@ -37,7 +37,7 @@ class LocationController extends Controller
             ], 401);
         }
 
-        // Build query for latest pings - filter by user_id
+        // Build query for latest pings
         $query = LocationPing::select('location_pings.*')
             ->join(DB::raw('(SELECT device_id, MAX(ping_timestamp) as max_timestamp 
                              FROM location_pings 
@@ -46,18 +46,28 @@ class LocationController extends Controller
                 $join->on('location_pings.device_id', '=', 'latest.device_id')
                      ->on('location_pings.ping_timestamp', '=', 'latest.max_timestamp');
             })
-            ->with('device')
-            ->whereHas('device', function($q) use ($user) {
+            ->with('device');
+
+        // If user is admin, show all devices. Otherwise, filter by user_id
+        if (!$user->isAdmin()) {
+            $query->whereHas('device', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             });
+        }
 
         $latestPings = $query->get();
 
         // If no recent pings found, check if user has devices but no recent data
         if ($latestPings->count() === 0) {
-            $userDeviceCount = Device::where('user_id', $user->id)
-                                   ->where('is_active', true)
-                                   ->count();
+            if ($user->isAdmin()) {
+                // Admin: check all devices
+                $userDeviceCount = Device::where('is_active', true)->count();
+            } else {
+                // Regular user: check only their devices
+                $userDeviceCount = Device::where('user_id', $user->id)
+                                       ->where('is_active', true)
+                                       ->count();
+            }
             
             if ($userDeviceCount > 0) {
                 // User has devices but no recent pings - return message

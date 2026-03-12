@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -34,20 +33,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Handle database exceptions
         $exceptions->render(function (\Illuminate\Database\QueryException $e, $request) {
             if ($request->is('api/*')) {
-                // Log the database error with context
-                Log::error('Database error occurred', [
-                    'message' => $e->getMessage(),
-                    'code' => $e->getCode(),
-                    'sql' => $e->getSql() ?? 'N/A',
-                    'bindings' => $e->getBindings() ?? [],
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'url' => $request->fullUrl(),
-                    'method' => $request->method(),
-                    'ip' => $request->ip(),
-                    'timestamp' => now()->toDateTimeString(),
-                ]);
-
                 return response()->json([
                     'error' => true,
                     'message' => 'Database error occurred',
@@ -60,18 +45,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Handle PDO exceptions (lower-level database errors)
         $exceptions->render(function (\PDOException $e, $request) {
             if ($request->is('api/*')) {
-                // Log the PDO error with context
-                Log::error('PDO error occurred', [
-                    'message' => $e->getMessage(),
-                    'code' => $e->getCode(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'url' => $request->fullUrl(),
-                    'method' => $request->method(),
-                    'ip' => $request->ip(),
-                    'timestamp' => now()->toDateTimeString(),
-                ]);
-
                 return response()->json([
                     'error' => true,
                     'message' => 'Database connection error',
@@ -96,19 +69,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Handle general exceptions for API routes
         $exceptions->render(function (\Throwable $e, $request) {
             if ($request->is('api/*')) {
-                // Log the general error with context
-                Log::error('Unexpected error occurred', [
-                    'message' => $e->getMessage(),
-                    'exception' => get_class($e),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString(),
-                    'url' => $request->fullUrl(),
-                    'method' => $request->method(),
-                    'ip' => $request->ip(),
-                    'timestamp' => now()->toDateTimeString(),
-                ]);
-
                 return response()->json([
                     'error' => true,
                     'message' => 'An unexpected error occurred',

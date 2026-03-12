@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use App\Services\SettingsService;
 
 class InfobipService
@@ -27,15 +26,6 @@ class InfobipService
         try {
             $credentials = $this->getCredentials();
             
-            Log::info('Infobip credentials check', [
-                'api_key_exists' => !empty($credentials['api_key']),
-                'base_url_exists' => !empty($credentials['base_url']),
-                'sender_number_exists' => !empty($credentials['sender_number']),
-                'api_key_length' => strlen($credentials['api_key'] ?? ''),
-                'base_url' => $credentials['base_url'] ?? 'null',
-                'sender_number' => $credentials['sender_number'] ?? 'null'
-            ]);
-            
             if (!$credentials['api_key'] || !$credentials['base_url'] || !$credentials['sender_number']) {
                 return [
                     'success' => false,
@@ -54,23 +44,11 @@ class InfobipService
             $cleanBaseUrl = str_replace(['https://', 'http://'], '', $credentials['base_url']);
             $url = "https://{$cleanBaseUrl}/sms/2/text/advanced";
             
-            Log::info('Infobip SMS API Request', [
-                'url' => $url,
-                'phone_number' => $formattedPhone,
-                'sender_number' => $credentials['sender_number'],
-                'request_data' => $requestData
-            ]);
-            
             // Send request with retry logic
             $response = $this->sendWithRetry($url, $requestData, $credentials['api_key']);
             
             if ($response['success']) {
                 $responseData = $response['data'];
-                
-                Log::info('Infobip SMS API Success', [
-                    'phone_number' => $formattedPhone,
-                    'response' => $responseData
-                ]);
                 
                 return [
                     'success' => true,
@@ -79,12 +57,6 @@ class InfobipService
                     'phone_number' => $formattedPhone
                 ];
             } else {
-                Log::error('Infobip SMS API failed', [
-                    'error' => $response['error'],
-                    'phone_number' => $formattedPhone,
-                    'url' => $url
-                ]);
-                
                 return [
                     'success' => false,
                     'error' => $response['error'],
@@ -93,12 +65,6 @@ class InfobipService
             }
 
         } catch (\Exception $e) {
-            Log::error('Infobip SMS Service Exception', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'phone_number' => $phoneNumber ?? 'unknown'
-            ]);
-            
             return [
                 'success' => false,
                 'error' => 'SMS service error: ' . $e->getMessage(),

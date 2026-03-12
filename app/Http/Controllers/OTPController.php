@@ -7,7 +7,6 @@ use Illuminate\Http\JsonResponse;
 use App\Services\OTPService;
 use App\Services\InfobipService;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
 
 class OTPController extends Controller
 {
@@ -108,12 +107,6 @@ class OTPController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('OTP send phone failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'phone_number' => $phoneNumber ?? 'unknown'
-            ]);
-
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to send OTP. Please try again. Error: ' . $e->getMessage(),
@@ -189,12 +182,6 @@ class OTPController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('OTP send email failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'email' => $email ?? 'unknown'
-            ]);
-
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to send OTP. Please try again.',
@@ -234,16 +221,6 @@ class OTPController extends Controller
                     $user = \App\Models\User::where('email', $identifier)->first();
                     
                     if ($user) {
-                        \Log::info('Updating email verification for user found by email', [
-                            'user_id' => $user->id,
-                            'email' => $user->email,
-                            'identifier' => $identifier,
-                            'before_update' => [
-                                'email_verified_at' => $user->email_verified_at,
-                                'approved' => $user->approved
-                            ]
-                        ]);
-                        
                         $user->update([
                             'email_verified_at' => now(),
                             'approved' => true  // Auto-approve after email verification
@@ -251,18 +228,6 @@ class OTPController extends Controller
                         
                         // Refresh user model to get updated values
                         $user->refresh();
-                        
-                        \Log::info('Email verification updated successfully', [
-                            'user_id' => $user->id,
-                            'after_update' => [
-                                'email_verified_at' => $user->email_verified_at,
-                                'approved' => $user->approved
-                            ]
-                        ]);
-                    } else {
-                        \Log::warning('User not found for email verification', [
-                            'identifier' => $identifier
-                        ]);
                     }
                 }
 
@@ -297,13 +262,6 @@ class OTPController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('OTP verify failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'identifier' => $identifier ?? 'unknown',
-                'type' => $type ?? 'unknown'
-            ]);
-
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to verify OTP. Please try again.',
@@ -372,12 +330,6 @@ class OTPController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Email verification failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => auth()->id()
-            ]);
-
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to verify email. Please try again.',
@@ -458,13 +410,6 @@ class OTPController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('OTP resend failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'identifier' => $identifier ?? 'unknown',
-                'type' => $type ?? 'unknown'
-            ]);
-
             return response()->json([
                 'error' => true,
                 'message' => 'Failed to resend OTP. Please try again.',
@@ -499,11 +444,6 @@ class OTPController extends Controller
             ];
 
         } catch (\Exception $e) {
-            Log::error('OTP email send failed', [
-                'error' => $e->getMessage(),
-                'email' => $email
-            ]);
-
             return [
                 'success' => false,
                 'error' => 'Failed to send email: ' . $e->getMessage()

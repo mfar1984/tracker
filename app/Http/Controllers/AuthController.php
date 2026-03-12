@@ -122,16 +122,6 @@ class AuthController extends Controller
         $phoneSessionKey1 = "otp_verified_phone_{$request->phone_number}";
         $phoneSessionKey2 = "otp_verified_phone_" . $formattedPhone;
         
-        \Log::info('Checking phone verification', [
-            'phone_input' => $request->phone_number,
-            'formatted_phone' => $formattedPhone,
-            'session_key_1' => $phoneSessionKey1,
-            'session_key_2' => $phoneSessionKey2,
-            'session_exists_1' => session($phoneSessionKey1) ? 'yes' : 'no',
-            'session_exists_2' => session($phoneSessionKey2) ? 'yes' : 'no',
-            'all_sessions' => session()->all()
-        ]);
-        
         // TEMPORARY: Skip phone verification check for testing
         // TODO: Remove this after fixing session issue
         $skipVerification = true;
@@ -215,17 +205,6 @@ class AuthController extends Controller
             
             // Check if SMTP is configured
             if (!$smtpHost || !$smtpUsername || !$smtpPassword || !$smtpPort || !$smtpEncryption) {
-                \Log::error('SMTP not configured for email verification', [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'missing_settings' => [
-                        'smtp_host' => $smtpHost ? 'ok' : 'missing',
-                        'smtp_username' => $smtpUsername ? 'ok' : 'missing',
-                        'smtp_password' => $smtpPassword ? 'ok' : 'missing',
-                        'smtp_port' => $smtpPort ? 'ok' : 'missing',
-                        'smtp_encryption' => $smtpEncryption ? 'ok' : 'missing',
-                    ]
-                ]);
                 return;
             }
             
@@ -347,19 +326,8 @@ class AuthController extends Controller
                 $message->html($htmlContent);
             });
 
-            \Log::info('Email verification OTP sent', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'smtp_host' => $smtpHost
-            ]);
-
         } catch (\Exception $e) {
-            \Log::error('Failed to send email verification OTP', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            // Email sending failed silently
         }
     }
 
