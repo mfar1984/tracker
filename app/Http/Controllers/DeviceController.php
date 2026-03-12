@@ -39,6 +39,18 @@ class DeviceController extends Controller
             ], 401);
         }
 
+        // Check device limit (max 10 devices per user)
+        $deviceCount = Device::where('user_id', $user->id)->count();
+        if ($deviceCount >= 10) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Device limit reached. Maximum 10 devices per account.',
+                'code' => 'DEVICE_LIMIT_REACHED',
+                'current_count' => $deviceCount,
+                'max_limit' => 10,
+            ], 403);
+        }
+
         // Handle avatar upload
         $avatarType = $request->avatar_type ?? 'icon';
         $avatarValue = $request->avatar_value ?? 'person'; // default icon
@@ -177,5 +189,84 @@ class DeviceController extends Controller
         $icons = json_decode(file_get_contents($iconsPath), true);
         
         return response()->json($icons, 200);
+    }
+
+    /**
+     * Register a new device using license key (for Android app)
+     * No login required - just license key + device name
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function registerWithLicense(Request $request)
+    {
+        $request->validate([
+            'license_key' => 'required|string|size:14', // Format: XXXX-XXXX-XXXX
+            'name' => 'required|string|min:1|max:255',
+            'avatar_type' => 'nullable|in:icon,upload',
+            'avatar_value' => 'nullable|string',
+        ]);
+
+        // Find user by license key
+        $user = \App\Models\User::where('license_key', $request->license_key)->first();
+
+        if (!$user) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Invalid license key',
+                'code' => 'INVALID_LICENSE_KEY',
+            ], 404);
+        }
+
+        // Check device limit (max 10 devices per user)
+        $deviceCount = Device::where('user_id', $user->id)->count();
+        if ($deviceCount >= 10) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Device limit reached for this license key. Maximum 10 devices.',
+                'code' => 'DEVICE_LIMIT_REACHED',
+                'current_count' => $deviceCount,
+                'max_limit' => 10,
+            ], 403);
+        }
+
+        // Generate unique device_id
+        $deviceId = 'device-' . strtolower($request->name) . '-' . time() . rand(100, 999);
+        
+        // Check if device_id already exists (unlikely but possible)
+        while (Device::where('device_id', $deviceId)->exists()) {
+            $deviceId = 'device-' . strtolower($request->name) . '-' . time() . rand(100, 999);
+        }
+
+        // Handle avatar
+        $avatarType = $request->avatar_type ?? 'icon';
+        $avatarValue = $request->avatar_value ?? 'person'; // default icon
+
+        $device = Device::create([
+            'device_id' => $deviceId,
+            'name' => $request->name,
+            'user_id' => $user->id,
+            'avatar_type' => $avatarType,
+            'avatar_value' => $avatarValue,
+            'registered_at' => now(),
+            'is_active' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Device registered successfully',
+            'device' => [
+                'device_id' => $device->device_id,
+                'name' => $device->name,
+                'avatar_type' => $device->avatar_type,
+                'avatar_value' => $device->avatar_value,
+                'registered_at' => $device->registered_at->toIso8601String(),
+            ],
+            'user' => [
+                'name' => $user->name,
+                'devices_count' => $deviceCount + 1,
+                'devices_limit' => 10,
+            ],
+        ], 201);
     }
 }

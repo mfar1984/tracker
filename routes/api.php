@@ -13,12 +13,27 @@ Route::get('/user', function (Request $request) {
 
 // Public endpoints (no auth required)
 Route::post('/login', [AuthController::class, 'apiLogin']);
+Route::post('/devices/register-with-license', [DeviceController::class, 'registerWithLicense']);
 Route::get('/devices/avatar-icons', [DeviceController::class, 'getAvatarIcons']);
 Route::post('/pings', [LocationPingController::class, 'store']);
 Route::get('/devices/{deviceId}/check-updates', [DeviceController::class, 'checkUpdates']);
 
-// Protected endpoints (require web auth for dashboard)
-Route::middleware('web')->group(function () {
+// OTP endpoints (no auth required for registration flow)
+Route::prefix('otp')->group(function () {
+    Route::post('/send-phone', [App\Http\Controllers\OTPController::class, 'sendPhone']);
+    Route::post('/send-email', [App\Http\Controllers\OTPController::class, 'sendEmail']);
+    Route::post('/verify', [App\Http\Controllers\OTPController::class, 'verify']);
+    Route::post('/resend', [App\Http\Controllers\OTPController::class, 'resend']);
+});
+
+// Device management endpoints (require auth and user status check)
+Route::middleware(['auth:sanctum', 'check.user.status'])->group(function () {
+    Route::post('/devices/register', [DeviceController::class, 'register']);
+    Route::get('/devices', [DeviceController::class, 'index']);
+});
+
+// Protected endpoints (require web auth and user status check for dashboard)
+Route::middleware(['web', 'check.user.status'])->group(function () {
     Route::get('/locations', [LocationController::class, 'index']);
     Route::get('/locations/{deviceId}', [LocationController::class, 'show']);
     Route::post('/devices/{deviceId}/update', [DeviceController::class, 'triggerUpdate']);
@@ -35,8 +50,20 @@ Route::middleware('web')->group(function () {
     Route::post('/user/change-password', [App\Http\Controllers\UserController::class, 'changePassword']);
 });
 
-// Device management endpoints (require auth)
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/devices/register', [DeviceController::class, 'register']);
-    Route::get('/devices', [DeviceController::class, 'index']);
+// Admin endpoints (require web auth and admin privileges)
+Route::middleware(['web', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/settings', [App\Http\Controllers\AdminController::class, 'getSettings']);
+    Route::put('/settings', [App\Http\Controllers\AdminController::class, 'updateSettings']);
+    Route::post('/test-email', [App\Http\Controllers\AdminController::class, 'testEmail']);
+    Route::post('/test-sms', [App\Http\Controllers\AdminController::class, 'testSMS']);
+    Route::get('/users', [App\Http\Controllers\AdminController::class, 'getUsers']);
+    Route::get('/devices', [App\Http\Controllers\AdminController::class, 'getAllDevices']);
+    
+    // User management endpoints
+    Route::post('/users/{userId}/generate-license', [App\Http\Controllers\AdminController::class, 'generateLicenseKey']);
+    Route::post('/users/{userId}/approve', [App\Http\Controllers\AdminController::class, 'approveUser']);
+    Route::post('/users/{userId}/unapprove', [App\Http\Controllers\AdminController::class, 'unapproveUser']);
+    Route::post('/users/{userId}/suspend', [App\Http\Controllers\AdminController::class, 'suspendUser']);
+    Route::post('/users/{userId}/unsuspend', [App\Http\Controllers\AdminController::class, 'unsuspendUser']);
+    Route::delete('/users/{userId}', [App\Http\Controllers\AdminController::class, 'deleteUser']);
 });

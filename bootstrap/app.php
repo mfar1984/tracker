@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,7 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'check.user.status' => \App\Http\Middleware\CheckUserStatus::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Handle validation exceptions
@@ -31,7 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Illuminate\Database\QueryException $e, $request) {
             if ($request->is('api/*')) {
                 // Log the database error with context
-                \Log::error('Database error occurred', [
+                Log::error('Database error occurred', [
                     'message' => $e->getMessage(),
                     'code' => $e->getCode(),
                     'sql' => $e->getSql() ?? 'N/A',
@@ -57,7 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\PDOException $e, $request) {
             if ($request->is('api/*')) {
                 // Log the PDO error with context
-                \Log::error('PDO error occurred', [
+                Log::error('PDO error occurred', [
                     'message' => $e->getMessage(),
                     'code' => $e->getCode(),
                     'file' => $e->getFile(),
@@ -93,7 +97,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Throwable $e, $request) {
             if ($request->is('api/*')) {
                 // Log the general error with context
-                \Log::error('Unexpected error occurred', [
+                Log::error('Unexpected error occurred', [
                     'message' => $e->getMessage(),
                     'exception' => get_class($e),
                     'file' => $e->getFile(),

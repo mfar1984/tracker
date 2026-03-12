@@ -8,12 +8,15 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     
     <!-- Material Symbols Outlined -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=delete,edit,refresh,update,vpn_key_alert" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin=""/>
+    
+    <!-- Admin Settings CSS -->
+    <link rel="stylesheet" href="{{ asset('css/admin-settings.css') }}">
     
     <style>
         * {
@@ -352,6 +355,22 @@
                     <span>Profile Settings</span>
                 </div>
                 
+                @if(Auth::user()->isAdmin())
+                <div id="admin-settings-btn" style="
+                    padding: 12px 16px;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    font-size: 14px;
+                    color: #495057;
+                " onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'" onclick="openAdminModal()">
+                    <span>🔧</span>
+                    <span>Admin Settings</span>
+                </div>
+                @endif
+                
                 <div style="height: 1px; background: #e9ecef; margin: 4px 0;"></div>
                 
                 <form method="POST" action="{{ route('logout') }}" style="margin: 0;">
@@ -478,14 +497,42 @@
             crossorigin=""></script>
     
     <script>
-        // Initialize map centered on Mecca
-        const map = L.map('map').setView([21.4225, 39.8262], 13);
+        // Initialize map with default coordinates (will be updated from settings)
+        let mapCenter = [21.4225, 39.8262]; // Default Mecca coordinates
         
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19
-        }).addTo(map);
+        // Load map configuration from admin settings
+        async function loadMapConfiguration() {
+            try {
+                const response = await fetch('/api/admin/settings');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const lat = parseFloat(data.data.map_center_lat) || 21.4225;
+                    const lng = parseFloat(data.data.map_center_lng) || 39.8262;
+                    mapCenter = [lat, lng];
+                    
+                    // Update map center if map is already initialized
+                    if (window.map) {
+                        map.setView(mapCenter, 13);
+                    }
+                }
+            } catch (error) {
+                console.log('Using default map center (Mecca)');
+            }
+        }
+        
+        // Load configuration first, then initialize map
+        loadMapConfiguration().then(() => {
+            // Initialize map with configured center
+            const map = L.map('map').setView(mapCenter, 13);
+            window.map = map; // Make map globally accessible
+        
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+        });
 
         // Store markers by deviceId
         const markers = {};
@@ -1107,6 +1154,43 @@
                                 font-size: 14px;
                                 transition: border-color 0.2s;
                             ">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #2c3e50; font-size: 13px;">License Key</label>
+                            <div style="position: relative;">
+                                <input type="text" id="profile-license-key" value="{{ Auth::user()->license_key ?? 'Not generated' }}" readonly style="
+                                    width: 100%;
+                                    padding: 10px 40px 10px 12px;
+                                    border: 1px solid #dee2e6;
+                                    border-radius: 4px;
+                                    font-size: 14px;
+                                    background: #f8f9fa;
+                                    color: #495057;
+                                    font-family: 'Courier New', monospace;
+                                    font-weight: 600;
+                                    letter-spacing: 1px;
+                                ">
+                                <button type="button" id="copy-license-btn" onclick="copyLicenseKey()" style="
+                                    position: absolute;
+                                    right: 8px;
+                                    top: 50%;
+                                    transform: translateY(-50%);
+                                    background: #2196F3;
+                                    color: white;
+                                    border: none;
+                                    padding: 6px 10px;
+                                    border-radius: 4px;
+                                    font-size: 11px;
+                                    cursor: pointer;
+                                    transition: background 0.2s;
+                                " onmouseover="this.style.background='#1976D2'" onmouseout="this.style.background='#2196F3'">
+                                    📋 Copy
+                                </button>
+                            </div>
+                            <p style="margin: 6px 0 0; font-size: 12px; color: #6c757d;">
+                                Use this license key to register devices in the Android app (max 10 devices)
+                            </p>
                         </div>
                         
                         <div style="text-align: right;">
@@ -1879,6 +1963,37 @@
         // Refresh devices
         document.getElementById('refresh-devices').addEventListener('click', loadDevices);
         
+        // Copy license key to clipboard
+        function copyLicenseKey() {
+            const licenseKeyInput = document.getElementById('profile-license-key');
+            const licenseKey = licenseKeyInput.value;
+            
+            if (licenseKey === 'Not generated') {
+                alert('License key not available');
+                return;
+            }
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(licenseKey).then(() => {
+                // Change button text temporarily
+                const copyBtn = document.getElementById('copy-license-btn');
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✓ Copied!';
+                copyBtn.style.background = '#27ae60';
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = '#2196F3';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                // Fallback for older browsers
+                licenseKeyInput.select();
+                document.execCommand('copy');
+                alert('License key copied to clipboard!');
+            });
+        }
+        
         // Profile form submission
         document.getElementById('profile-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -2134,5 +2249,11 @@
             }
         }
     </script>
+    
+    <!-- Include Admin Settings Modal Component -->
+    @include('components.admin-settings-modal')
+    
+    <!-- Admin Settings JavaScript -->
+    <script src="{{ asset('js/admin-settings.js') }}"></script>
 </body>
 </html>
